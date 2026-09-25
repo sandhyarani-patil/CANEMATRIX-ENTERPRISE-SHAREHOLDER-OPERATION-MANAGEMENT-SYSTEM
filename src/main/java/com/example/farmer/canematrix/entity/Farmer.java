@@ -121,6 +121,14 @@ public class Farmer {
     @OneToMany(mappedBy = "farmer", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FarmerFarmDetail> farmDetails = new ArrayList<>();
 
+    // --- Login & Security Fields for Farmer Portal ---
+    @Column(name = "password", nullable = false)
+    private String password; // शेतकरी लॉगिन पासवर्ड (BCrypt ने एन्कोड केलेला)
+
+    @Column(name = "role", nullable = false, length = 30)
+    private String role = "ROLE_FARMER"; // बाय डिफॉल्ट प्रत्येकाचा रोल ROLE_FARMER असेल
+
+
     @PrePersist
     protected void onCreate() {
         if (registrationDate == null) {
@@ -138,6 +146,10 @@ public class Farmer {
         if (farmArea == null) {
             farmArea = 0.0;
         }
+        // 👉 शेतकरी रजिस्टर करताना रोल सेट करणे
+        if (role == null || role.isEmpty()) {
+            role = "ROLE_FARMER";
+        }
         createdAt = LocalDateTime.now();
     }
 
@@ -145,4 +157,7 @@ public class Farmer {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+
+
 }

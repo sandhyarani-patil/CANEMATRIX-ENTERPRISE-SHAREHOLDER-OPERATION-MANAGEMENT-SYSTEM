@@ -1,9 +1,9 @@
 package com.example.farmer.canematrix.controller;
 
-import com.example.farmer.canematrix.dto.TonnesSugarReceiptDto;
+import com.example.farmer.canematrix.dto.TonnesSugarReceiptDto; // 👈 हे इम्पोर्ट असणे गरजेचे आहे
 import com.example.farmer.canematrix.entity.TonnesSugarAllocation;
 import com.example.farmer.canematrix.entity.TonnesSugarHistory;
-import com.example.farmer.canematrix.service.impl.TonnesSugarAllocationServiceImpl;
+import com.example.farmer.canematrix.service.TonnesSugarAllocationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -17,9 +17,8 @@ import java.util.List;
 public class TonnesSugarAllocationController {
 
     @Autowired
-    private TonnesSugarAllocationServiceImpl service;
+    private TonnesSugarAllocationService service;
 
-    // 1. नवीन ॲलोकेशन तयार करणे (नाव आणि रेट बॅकएंड स्वतः फेच करेल)
     @PostMapping("/create")
     public ResponseEntity<TonnesSugarAllocation> createAllocation(
             @RequestParam String farmerCode,
@@ -29,35 +28,38 @@ public class TonnesSugarAllocationController {
         return ResponseEntity.ok(allocation);
     }
 
-    // 2. साखर उचलणे आणि PDF पावती डाऊनलोड करणे
-    @GetMapping("/lift/pdf")
-    public ResponseEntity<byte[]> liftAndDownloadPdf(
+    // 🌟 ही नवीन 'lift' मेथड इथे ऍड केली आहे जी फ्रंटएंडच्या API कॉलला रेस्पॉंड करेल
+    @PostMapping("/lift")
+    public ResponseEntity<TonnesSugarReceiptDto> liftTonnesSugar(
             @RequestParam String farmerCode,
-            @RequestParam double quantity) {
+            @RequestParam Double quantityLifted,
+            @RequestParam String liftDate) {
 
-        TonnesSugarReceiptDto receipt = service.liftTonnesSugar(farmerCode, quantity);
-        byte[] pdfBytes = service.generateTonnesReceiptPdf(receipt);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "Cane_Sugar_Receipt_" + farmerCode + ".pdf");
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(pdfBytes);
+        TonnesSugarReceiptDto receipt = service.liftTonnesSugar(farmerCode, quantityLifted);
+        return ResponseEntity.ok(receipt);
     }
 
-    // 3. सर्व शेतकर्‍यांची ॲलोकेशन लिस्ट मिळवणे
     @GetMapping("/all")
     public ResponseEntity<List<TonnesSugarAllocation>> getAllAllocations() {
         List<TonnesSugarAllocation> list = service.getAllAllocations();
         return ResponseEntity.ok(list);
     }
 
-    // 4. शेतकर्‍याचा कोड टाकून त्याची हिस्ट्री मिळवणे
     @GetMapping("/history")
     public ResponseEntity<List<TonnesSugarHistory>> getFarmerHistory(@RequestParam String farmerCode) {
         List<TonnesSugarHistory> historyList = service.getFarmerTonnesHistory(farmerCode);
         return ResponseEntity.ok(historyList);
+    }
+
+    // Safe & Idempotent PDF download using historyId
+    @GetMapping("/lift/pdf/{historyId}")
+    public ResponseEntity<byte[]> downloadLiftReceiptPdf(@PathVariable Long historyId) {
+        byte[] pdfBytes = service.generateTonnesReceiptPdfByHistoryId(historyId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "Cane_Sugar_Receipt_" + historyId + ".pdf");
+
+        return ResponseEntity.ok().headers(headers).body(pdfBytes);
     }
 }

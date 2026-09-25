@@ -3,6 +3,7 @@ package com.example.farmer.canematrix.service.impl;
 import com.example.farmer.canematrix.entity.Farmer;
 import com.example.farmer.canematrix.entity.FarmerFarmDetail;
 import com.example.farmer.canematrix.exception.FarmerNotFoundException;
+import com.example.farmer.canematrix.exception.ResourceNotFoundException; // 👈 नवीन इम्पोर्ट
 import com.example.farmer.canematrix.repository.FarmerFarmDetailRepository;
 import com.example.farmer.canematrix.repository.FarmerRepository;
 import com.example.farmer.canematrix.service.FarmerFarmDetailService;
@@ -41,7 +42,7 @@ public class FarmerFarmDetailServiceImpl implements FarmerFarmDetailService {
     @Override
     public FarmerFarmDetail updateFarmDetail(Long farmId, FarmerFarmDetail updatedDetail) {
         FarmerFarmDetail existing = farmRepository.findById(farmId)
-                .orElseThrow(() -> new RuntimeException("Farm detail not found with id: " + farmId));
+                .orElseThrow(() -> new ResourceNotFoundException("Farm detail not found with id: " + farmId)); // 👈 अपडेट केले
 
         existing.setGatNumber(updatedDetail.getGatNumber());
         existing.setTotalAreaAcre(updatedDetail.getTotalAreaAcre());
@@ -55,7 +56,7 @@ public class FarmerFarmDetailServiceImpl implements FarmerFarmDetailService {
     @Override
     public void deleteFarmDetail(Long farmId) {
         if (!farmRepository.existsById(farmId)) {
-            throw new RuntimeException("Farm detail not found with id: " + farmId);
+            throw new ResourceNotFoundException("Farm detail not found with id: " + farmId); // 👈 अपडेट केले
         }
         farmRepository.deleteById(farmId);
     }

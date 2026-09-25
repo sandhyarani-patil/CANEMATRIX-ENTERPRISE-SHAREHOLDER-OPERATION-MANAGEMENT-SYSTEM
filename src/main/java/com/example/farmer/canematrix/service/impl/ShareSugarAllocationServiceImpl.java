@@ -3,6 +3,8 @@ package com.example.farmer.canematrix.service.impl;
 import com.example.farmer.canematrix.dto.ShareSugarAllocationDto;
 import com.example.farmer.canematrix.dto.SugarLiftReceiptDto;
 import com.example.farmer.canematrix.entity.*;
+import com.example.farmer.canematrix.exception.FarmerNotFoundException;     // 👈 शेतकरी नाही सापडला तर
+import com.example.farmer.canematrix.exception.ResourceNotFoundException; // 👈 इतर रेकॉर्ड नाही सापडला तर
 import com.example.farmer.canematrix.repository.*;
 import com.example.farmer.canematrix.service.ShareSugarAllocationService;
 
@@ -50,13 +52,13 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
         List<ShareAllocation> shareAllocations = shareAllocationRepository.findByFarmerCode(requestDto.getFarmerCode());
 
         if (shareAllocations == null || shareAllocations.isEmpty()) {
-            throw new RuntimeException("Share Allocation not found! Farmer must complete Share Allocation first.");
+            throw new ResourceNotFoundException("Share Allocation not found! Farmer must complete Share Allocation first.");
         }
 
         ShareAllocation shareAllocationCheck = shareAllocations.get(0);
 
         if (!"A".equalsIgnoreCase(shareAllocationCheck.getTypeOfShare())) {
-            throw new RuntimeException("Error: Share sugar allocation is only allowed for 'A' series farmers! This farmer is a 'C' series member.");
+            throw new IllegalArgumentException("Error: Share sugar allocation is only allowed for 'A' series farmers! This farmer is a 'C' series member.");
         }
 
         String incomingCode = requestDto.getFarmerCode();
@@ -67,7 +69,7 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
         }
 
         var farmer = farmerRepository.findByFarmerCode(originalFarmerCode)
-                .orElseThrow(() -> new RuntimeException("Farmer not found with code: " + incomingCode));
+                .orElseThrow(() -> new FarmerNotFoundException("Farmer not found with code: " + incomingCode));
 
         ShareSugarAllocation allocation = new ShareSugarAllocation();
         allocation.setFarmerCode(shareAllocationCheck.getFarmerCode());
@@ -77,7 +79,7 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
         allocation.setLastUpdatedDate(LocalDate.now());
 
         SugarFactoryRate latestRate = rateRepository.findFirstByOrderByIdDesc()
-                .orElseThrow(() -> new RuntimeException("Factory rates are not configured in Rate Master!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Factory rates are not configured in Rate Master!"));
 
         BigDecimal ratePerKg = latestRate.getRateOfShareSugar() != null ? latestRate.getRateOfShareSugar() : BigDecimal.ZERO;
         allocation.setRatePerKg(ratePerKg);
@@ -118,8 +120,19 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
 
     @Override
     public ShareSugarAllocationDto getShareSugarAllocationByFarmerCode(String farmerCode) {
-        ShareSugarAllocation allocation = allocationRepository.findByFarmerCode(farmerCode)
-                .orElseThrow(() -> new RuntimeException("Share Sugar Allocation not found for farmer code: " + farmerCode));
+        ShareSugarAllocation allocation = allocationRepository.findByFarmerCode(farmerCode).orElse(null);
+
+        // Jar exact code sapadla nahi, tar "A-" kinwa "C-" prefix lavun check kara
+        if (allocation == null && !farmerCode.toUpperCase().startsWith("A-") && !farmerCode.toUpperCase().startsWith("C-")) {
+            allocation = allocationRepository.findByFarmerCode("A-" + farmerCode).orElse(null);
+            if (allocation == null) {
+                allocation = allocationRepository.findByFarmerCode("C-" + farmerCode).orElse(null);
+            }
+        }
+
+        if (allocation == null) {
+            throw new ResourceNotFoundException("Share Sugar Allocation not found for farmer code: " + farmerCode);
+        }
         return mapToDto(allocation);
     }
 
@@ -127,15 +140,15 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
     public SugarLiftReceiptDto liftSugar(String farmerCode, double quantityToLift) {
 
         ShareSugarAllocation allocation = allocationRepository.findByFarmerCode(farmerCode)
-                .orElseThrow(() -> new RuntimeException("Allocation not found for farmer code: " + farmerCode));
+                .orElseThrow(() -> new ResourceNotFoundException("Allocation not found for farmer code: " + farmerCode));
 
         if (farmerCode != null && farmerCode.toUpperCase().startsWith("C-")) {
-            throw new RuntimeException("Error: Share sugar is only applicable for 'A' series farmers! C-series farmers cannot lift share sugar.");
+            throw new IllegalArgumentException("Error: Share sugar is only applicable for 'A' series farmers! C-series farmers cannot lift share sugar.");
         }
 
         double currentRemaining = allocation.getRemainingSugarKg();
         if (quantityToLift > currentRemaining) {
-            throw new RuntimeException("Error: Cannot lift " + quantityToLift + " kg. Only " + currentRemaining + " kg is remaining!");
+            throw new IllegalArgumentException("Error: Cannot lift " + quantityToLift + " kg. Only " + currentRemaining + " kg is remaining!");
         }
 
         double previousLifted = allocation.getLiftedSugarKg() != null ? allocation.getLiftedSugarKg() : 0.0;
@@ -168,7 +181,10 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
         history.setLiftDate(LocalDate.now());
         historyRepository.save(history);
 
+
         SugarLiftReceiptDto receipt = new SugarLiftReceiptDto();
+
+        receipt.setLiftHistoryId(history.getId()); // 👈 हा भाग ॲड करा (history ID set करण्यासाठी)
         receipt.setFarmerCode(allocation.getFarmerCode());
         receipt.setFarmerName(allocation.getFarmerName());
         receipt.setAllocationYear(allocation.getAllocationYear());
@@ -181,6 +197,31 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
         receipt.setStatus(allocation.getStatus().name());
 
         return receipt;
+    }
+
+    @Override
+    public byte[] generateLiftReceiptPdfByHistoryId(Long historyId) {
+        SugarLiftHistory history = historyRepository.findById(historyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lift history not found: " + historyId));
+
+        ShareSugarAllocation allocation = allocationRepository.findByFarmerCode(history.getFarmerCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Allocation not found for: " + history.getFarmerCode()));
+
+        BigDecimal rate = allocation.getRatePerKg() != null ? allocation.getRatePerKg() : BigDecimal.ZERO;
+
+        SugarLiftReceiptDto receipt = new SugarLiftReceiptDto();
+        receipt.setLiftHistoryId(history.getId());
+        receipt.setFarmerCode(history.getFarmerCode());
+        receipt.setFarmerName(history.getFarmerName());
+        receipt.setAllocationYear(allocation.getAllocationYear());
+        receipt.setCurrentLiftedKg(history.getQuantityLifted());
+        receipt.setRatePerKg(rate);
+        receipt.setCurrentBillAmount(history.getLiftBillAmount());
+        receipt.setRemainingSugarKg(history.getRemainingSugarKg());
+        receipt.setLiftDate(history.getLiftDate());
+        receipt.setStatus(allocation.getStatus().name());
+
+        return generateLiftReceiptPdf(receipt);
     }
 
     @Override
@@ -265,13 +306,20 @@ public class ShareSugarAllocationServiceImpl implements ShareSugarAllocationServ
 
     @Override
     public List<SugarLiftHistory> getFarmerLiftHistory(String farmerCode) {
-        return historyRepository.findByFarmerCode(farmerCode);
-    }
+        List<SugarLiftHistory> history = historyRepository.findByFarmerCode(farmerCode);
 
+        if ((history == null || history.isEmpty()) && !farmerCode.toUpperCase().startsWith("A-") && !farmerCode.toUpperCase().startsWith("C-")) {
+            history = historyRepository.findByFarmerCode("A-" + farmerCode);
+            if (history == null || history.isEmpty()) {
+                history = historyRepository.findByFarmerCode("C-" + farmerCode);
+            }
+        }
+        return history;
+    }
     @Override
     public void deleteShareSugarAllocation(Long id) {
         if (!allocationRepository.existsById(id)) {
-            throw new RuntimeException("Record not found with ID: " + id);
+            throw new ResourceNotFoundException("Record not found with ID: " + id);
         }
         allocationRepository.deleteById(id);
     }

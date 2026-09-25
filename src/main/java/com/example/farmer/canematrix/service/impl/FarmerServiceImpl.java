@@ -1,9 +1,9 @@
 package com.example.farmer.canematrix.service.impl;
 
-import com.example.farmer.canematrix.dto.request.FarmerRequest;
+import com.example.farmer.canematrix.dto.FarmerRequest;
 import com.example.farmer.canematrix.dto.BankDetailResponse;
 import com.example.farmer.canematrix.dto.FarmDetailResponse;
-import com.example.farmer.canematrix.dto.response.FarmerResponse;
+import com.example.farmer.canematrix.dto.FarmerResponse;
 import com.example.farmer.canematrix.dto.NomineeResponse;
 import com.example.farmer.canematrix.entity.Farmer;
 import com.example.farmer.canematrix.entity.FarmerBankDetail;
@@ -16,6 +16,7 @@ import com.example.farmer.canematrix.service.FarmerService;
 import com.example.farmer.canematrix.service.SmsService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,11 +27,13 @@ import java.util.List;
 @Transactional
 public class FarmerServiceImpl implements FarmerService {
 
-
     private final FarmerRepository farmerRepository;
 
     @Autowired(required = false)
-    private SmsService smsService; // SMS Service Inject केली आहे
+    private SmsService smsService;
+
+    // 👉 पासवर्ड एन्कोडर
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public FarmerServiceImpl(FarmerRepository farmerRepository) {
         this.farmerRepository = farmerRepository;
@@ -50,14 +53,21 @@ public class FarmerServiceImpl implements FarmerService {
 
         Farmer farmer = mapRequestToEntity(request, new Farmer());
 
-        // Default status if new farmer
+        // 👉 पासवर्ड एन्कोडिंग लॉजिक
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            farmer.setPassword(passwordEncoder.encode(request.getPassword()));
+        } else {
+            farmer.setPassword(passwordEncoder.encode("Farmer@123")); // डीफॉल्ट पासवर्ड
+        }
+
+        farmer.setRole("ROLE_FARMER");
+
         if (farmer.getStatus() == null) {
             farmer.setStatus(FarmerStatus.ACTIVE);
         }
 
         Farmer savedFarmer = farmerRepository.save(farmer);
 
-        // नोंदणी (Registration) यशस्वी झाल्यावर पात्रतेचा SMS पाठवणे
         sendRegistrationEligibilityNotification(savedFarmer);
 
         return convertToResponse(savedFarmer);
@@ -67,7 +77,6 @@ public class FarmerServiceImpl implements FarmerService {
     @Override
     @Transactional(readOnly = true)
     public List<FarmerResponse> getAllFarmers() {
-
         return farmerRepository.findAll()
                 .stream()
                 .map(this::convertToResponse)
@@ -78,23 +87,18 @@ public class FarmerServiceImpl implements FarmerService {
     @Override
     @Transactional(readOnly = true)
     public FarmerResponse getFarmerById(Long id) {
-
         Farmer farmer = farmerRepository.findById(id)
                 .orElseThrow(() -> new FarmerNotFoundException("Farmer not found with id: " + id));
-
         return convertToResponse(farmer);
     }
 
     // 4. UPDATE FARMER
     @Override
     public FarmerResponse updateFarmer(Long id, FarmerRequest request) {
-
         Farmer farmer = farmerRepository.findById(id)
                 .orElseThrow(() -> new FarmerNotFoundException("Farmer not found with id: " + id));
 
-        // Basic Info Update
         farmer = mapRequestToEntity(request, farmer);
-
         farmer.setUpdatedAt(LocalDateTime.now());
         Farmer updatedFarmer = farmerRepository.save(farmer);
 
@@ -104,31 +108,32 @@ public class FarmerServiceImpl implements FarmerService {
     // 5. DELETE FARMER
     @Override
     public void deleteFarmer(Long id) {
-
         Farmer farmer = farmerRepository.findById(id)
                 .orElseThrow(() -> new FarmerNotFoundException("Farmer not found with id: " + id));
-
         farmerRepository.delete(farmer);
     }
 
-    // HELPER METHOD: REGISTRATION ELIGIBILITY SMS (Text Block format)
     private void sendRegistrationEligibilityNotification(Farmer farmer) {
         if (smsService != null && farmer.getMobileNumber() != null && !farmer.getMobileNumber().isBlank()) {
             String message = """
                     नमस्कार %s,
                     CaneMatrix मध्ये तुमची नोंदणी यशस्वीरीत्या पूर्ण झाली आहे.
                     तुम्ही शेअर वाटप प्रक्रियेसाठी (Share Allocation) पात्र आहात.
-                    पुढील प्रक्रियेसाठी कृपया कारखान्याच्या ऑफिसमध्ये संपर्क साधा.
                     - CaneMatrix Team""".formatted(farmer.getFarmerName());
 
             smsService.sendSms(farmer.getMobileNumber(), message);
         }
     }
 
-    // HELPER METHOD: REQUEST DTO TO ENTITY MAPPING
     private Farmer mapRequestToEntity(FarmerRequest request, Farmer farmer) {
         if (request.getFarmerCode() != null) farmer.setFarmerCode(request.getFarmerCode());
         if (request.getFarmerName() != null) farmer.setFarmerName(request.getFarmerName());
+
+        // 👉 पासवर्ड अपडेट असल्यास एन्कोड करणे
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            farmer.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
         if (request.getGender() != null) farmer.setGender(request.getGender());
         if (request.getDateOfBirth() != null) farmer.setDateOfBirth(request.getDateOfBirth());
         if (request.getMobileNumber() != null) farmer.setMobileNumber(request.getMobileNumber());
@@ -148,7 +153,6 @@ public class FarmerServiceImpl implements FarmerService {
         if (request.getHas8A() != null) farmer.setHas8A(request.getHas8A());
         if (request.getFarmArea() != null) farmer.setFarmArea(request.getFarmArea());
 
-        // 1. Bank Details
         if (request.getBankDetail() != null) {
             FarmerBankDetail bank = farmer.getBankDetail() != null ? farmer.getBankDetail() : new FarmerBankDetail();
             bank.setBankName(request.getBankDetail().getBankName());
@@ -161,7 +165,6 @@ public class FarmerServiceImpl implements FarmerService {
             farmer.setBankDetail(bank);
         }
 
-        // 2. Nominee Details
         if (request.getNominee() != null) {
             FarmerNominee nominee = farmer.getNominee() != null ? farmer.getNominee() : new FarmerNominee();
             nominee.setNomineeName(request.getNominee().getNomineeName());
@@ -172,7 +175,6 @@ public class FarmerServiceImpl implements FarmerService {
             farmer.setNominee(nominee);
         }
 
-        // 3. Farm Details
         if (request.getFarmDetails() != null && !request.getFarmDetails().isEmpty()) {
             List<FarmerFarmDetail> farmList = request.getFarmDetails().stream().map(fDto -> {
                 FarmerFarmDetail farm = new FarmerFarmDetail();
@@ -192,11 +194,8 @@ public class FarmerServiceImpl implements FarmerService {
         return farmer;
     }
 
-    // HELPER METHOD: MAPPING ENTITY TO RESPONSE DTO
     private FarmerResponse convertToResponse(Farmer farmer) {
-
         FarmerResponse response = new FarmerResponse();
-
         response.setId(farmer.getId());
         response.setFarmerCode(farmer.getFarmerCode());
         response.setFarmerName(farmer.getFarmerName());
@@ -218,22 +217,18 @@ public class FarmerServiceImpl implements FarmerService {
         response.setCreatedAt(farmer.getCreatedAt());
         response.setUpdatedAt(farmer.getUpdatedAt());
 
-        // New fields mapped to response
         response.setHas712(farmer.getHas712());
         response.setHas8A(farmer.getHas8A());
         response.setFarmArea(farmer.getFarmArea());
 
-        // Map Bank Details to Response
         if (farmer.getBankDetail() != null) {
             response.setBankDetail(mapBankToResponse(farmer.getBankDetail()));
         }
 
-        // Map Nominee to Response
         if (farmer.getNominee() != null) {
             response.setNominee(mapNomineeToResponse(farmer.getNominee()));
         }
 
-        // Map Farms to Response
         if (farmer.getFarmDetails() != null && !farmer.getFarmDetails().isEmpty()) {
             List<FarmDetailResponse> farmRespList = farmer.getFarmDetails().stream()
                     .map(this::mapFarmToResponse)
@@ -244,7 +239,6 @@ public class FarmerServiceImpl implements FarmerService {
         return response;
     }
 
-    // Extraction methods for better readability
     private BankDetailResponse mapBankToResponse(FarmerBankDetail bank) {
         BankDetailResponse bankResp = new BankDetailResponse();
         bankResp.setId(bank.getId());

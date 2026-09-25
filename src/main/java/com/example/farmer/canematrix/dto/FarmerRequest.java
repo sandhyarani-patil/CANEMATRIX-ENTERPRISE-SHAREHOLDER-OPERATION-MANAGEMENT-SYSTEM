@@ -1,4 +1,4 @@
-package com.example.farmer.canematrix.dto.request;
+package com.example.farmer.canematrix.dto;
 
 import com.example.farmer.canematrix.dto.BankDetailRequest;
 import com.example.farmer.canematrix.dto.FarmDetailRequest;
@@ -40,6 +40,9 @@ public class FarmerRequest {
 
     @Email(message = "Invalid email address")
     private String email;
+
+    // --- 👉 नवीन पासवर्ड फिल्ड ॲड केला आहे ---
+    private String password;
 
     private String address;
     private String village;

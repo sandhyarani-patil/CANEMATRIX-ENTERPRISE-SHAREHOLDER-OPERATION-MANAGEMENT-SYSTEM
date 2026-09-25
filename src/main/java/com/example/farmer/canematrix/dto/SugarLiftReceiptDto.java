@@ -10,6 +10,8 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SugarLiftReceiptDto {
+
+    private Long liftHistoryId;
     private String farmerCode;
     private String farmerName;
     private String allocationYear;
@@ -21,5 +23,11 @@ public class SugarLiftReceiptDto {
     private double totalLiftedSoFar;    // आतापर्यंतची एकूण नेलेली साखर
     private double remainingSugarKg;    // उरलेली शिल्लक साखर
     private LocalDate liftDate;         // साखर नेल्याची तारीख
-    private String status;              // ACTIVE / COMPLETED
+    private String status;
+
+    // ACTIVE / COMPLETED
+
+
+
+
 }

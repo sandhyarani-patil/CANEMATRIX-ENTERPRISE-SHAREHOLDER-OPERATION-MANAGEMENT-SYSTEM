@@ -1,9 +1,13 @@
 package com.example.farmer.canematrix.service.impl;
 
+import com.example.farmer.canematrix.dto.FactorySummaryDTO;
 import com.example.farmer.canematrix.dto.FarmerSupplySummaryDTO;
+import com.example.farmer.canematrix.dto.VehicleSummaryDTO;
 import com.example.farmer.canematrix.entity.Farmer;
 import com.example.farmer.canematrix.entity.SugarFactoryRate;
 import com.example.farmer.canematrix.entity.SugarcaneSupply;
+import com.example.farmer.canematrix.exception.FarmerNotFoundException;
+import com.example.farmer.canematrix.exception.ResourceNotFoundException;
 import com.example.farmer.canematrix.repository.FarmerRepository;
 import com.example.farmer.canematrix.repository.SugarFactoryRateRepository;
 import com.example.farmer.canematrix.repository.SugarcaneSupplyRepository;
@@ -22,6 +26,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,9 +43,8 @@ public class SugarcaneSupplyServiceImpl implements SugarcaneSupplyService {
     private SugarFactoryRateRepository rateRepository;
 
     @Override
-    public SugarcaneSupply addSupplyEntry(String farmerCode, double tonnes, String tractorNumber, String driverName) {
+    public SugarcaneSupply addSupplyEntry(String farmerCode, String farmCode, double tonnes, String tractorNumber, String driverName, LocalDate plantingDate) {
 
-        // 1. प्रिफिक्स हँडलिंगसह शेतकरी शोधणे
         String cleanedCode = farmerCode;
         if (farmerCode != null && farmerCode.contains("-")) {
             cleanedCode = farmerCode.substring(farmerCode.indexOf("-") + 1);
@@ -50,35 +54,33 @@ public class SugarcaneSupplyServiceImpl implements SugarcaneSupplyService {
 
         Farmer farmer = farmerRepository.findByFarmerCode(farmerCode)
                 .orElseGet(() -> farmerRepository.findByFarmerCode(searchCode)
-                        .orElseThrow(() -> new RuntimeException("Farmer not found with code: " + farmerCode)));
+                        .orElseThrow(() -> new FarmerNotFoundException("Farmer not found with code: " + farmerCode)));
 
-        // 2. दर काढणे
         SugarFactoryRate currentRate = rateRepository.findFirstByOrderByIdDesc()
-                .orElseThrow(() -> new RuntimeException("Sugarcane rate not found in SugarFactoryRate!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Sugarcane rate not found in SugarFactoryRate!"));
 
         double ratePerTon = currentRate.getRateOfSugarcanePerTon().doubleValue();
         double currentTripPrice = tonnes * ratePerTon;
 
-        // 3. त्याच शेतकऱ्याच्या आधीच्या सर्व एन्ट्रीजची बेरीज काढणे (Cumulative)
         List<SugarcaneSupply> previousSupplies = supplyRepository.findByFarmerCode(farmerCode);
 
         double previousTotalTonnes = previousSupplies.stream().mapToDouble(SugarcaneSupply::getTonnes).sum();
         double previousTotalPrice = previousSupplies.stream().mapToDouble(SugarcaneSupply::getTotalPrice).sum();
 
-        // आजची एन्ट्री मिळवून एकूण (Cumulative) काढणे
         double runningTotalTonnes = previousTotalTonnes + tonnes;
         double runningTotalPrice = previousTotalPrice + currentTripPrice;
 
-        // 4. नवीन पुरवठा रेकॉर्ड ऑब्जेक्ट तयार करणे
         SugarcaneSupply supply = new SugarcaneSupply();
         supply.setFarmerCode(farmerCode);
         supply.setFarmerName(farmer.getFarmerName());
-        supply.setSupplyDate(LocalDate.now());
+        supply.setFarmCode(farmCode);
+        supply.setPlantingDate(plantingDate);
+
+        supply.setSupplyDate(LocalDateTime.now());
         supply.setTonnes(tonnes);
         supply.setRatePerTon(ratePerTon);
         supply.setTotalPrice(currentTripPrice);
 
-        // 👉 आजवरचा एकूण टन आणि एकूण प्राईस सेट करणे
         supply.setCumulativeTonnes(runningTotalTonnes);
         supply.setCumulativeTotalPrice(runningTotalPrice);
 
@@ -94,7 +96,7 @@ public class SugarcaneSupplyServiceImpl implements SugarcaneSupplyService {
         List<SugarcaneSupply> supplies = supplyRepository.findByFarmerCode(farmerCode);
 
         if (supplies.isEmpty()) {
-            throw new RuntimeException("No sugarcane supplies found for farmer code: " + farmerCode);
+            throw new ResourceNotFoundException("No sugarcane supplies found for farmer code: " + farmerCode);
         }
 
         String farmerName = supplies.get(0).getFarmerName();
@@ -119,7 +121,7 @@ public class SugarcaneSupplyServiceImpl implements SugarcaneSupplyService {
     @Override
     public byte[] generateSupplyReceiptPdf(Long supplyId) {
         SugarcaneSupply supply = supplyRepository.findById(supplyId)
-                .orElseThrow(() -> new RuntimeException("Sugarcane supply record not found with id: " + supplyId));
+                .orElseThrow(() -> new ResourceNotFoundException("Sugarcane supply record not found with id: " + supplyId));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
@@ -160,6 +162,12 @@ public class SugarcaneSupplyServiceImpl implements SugarcaneSupplyService {
                 contentStream.showText("Farmer Name      : " + supply.getFarmerName());
 
                 contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("Farm Code        : " + (supply.getFarmCode() != null ? supply.getFarmCode() : "N/A"));
+
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("Planting Date    : " + (supply.getPlantingDate() != null ? supply.getPlantingDate().toString() : "N/A"));
+
+                contentStream.newLineAtOffset(0, -20);
                 contentStream.showText("--------------------------------------------------------------------------------------------------------");
 
                 contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), 12);
@@ -198,7 +206,7 @@ public class SugarcaneSupplyServiceImpl implements SugarcaneSupplyService {
 
             document.save(out);
         } catch (IOException e) {
-            throw new RuntimeException("Error while generating PDF receipt", e);
+            throw new IllegalArgumentException("Error while generating PDF receipt", e);
         }
 
         return out.toByteArray();
@@ -206,12 +214,51 @@ public class SugarcaneSupplyServiceImpl implements SugarcaneSupplyService {
 
     @Override
     public List<SugarcaneSupply> getSuppliesByDateRange(LocalDate startDate, LocalDate endDate) {
-        List<SugarcaneSupply> supplies = supplyRepository.findBySupplyDateBetween(startDate, endDate);
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<SugarcaneSupply> supplies = supplyRepository.findBySupplyDateBetween(startDateTime, endDateTime);
 
         if (supplies.isEmpty()) {
-            throw new RuntimeException("No sugarcane supplies found between " + startDate + " and " + endDate);
+            throw new ResourceNotFoundException("No sugarcane supplies found between " + startDate + " and " + endDate);
         }
 
         return supplies;
+    }
+
+    @Override
+    public VehicleSummaryDTO getVehicleSummary(String tractorNumber, LocalDate startDate, LocalDate endDate) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<SugarcaneSupply> supplies = supplyRepository.findByTractorNumberAndSupplyDateBetween(tractorNumber, startDateTime, endDateTime);
+
+        if (supplies.isEmpty()) {
+            throw new ResourceNotFoundException("No supply records found for vehicle: " + tractorNumber + " between " + startDate + " and " + endDate);
+        }
+
+        int totalTrips = supplies.size();
+        double totalTonnes = supplies.stream().mapToDouble(SugarcaneSupply::getTonnes).sum();
+        double totalAmountGenerated = supplies.stream().mapToDouble(SugarcaneSupply::getTotalPrice).sum();
+
+        return new VehicleSummaryDTO(tractorNumber, totalTrips, totalTonnes, totalAmountGenerated, supplies);
+    }
+
+    @Override
+    public FactorySummaryDTO getFactorySummary(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<SugarcaneSupply> supplies = supplyRepository.findBySupplyDateBetween(startDateTime, endDateTime);
+
+        if (supplies.isEmpty()) {
+            throw new ResourceNotFoundException("No supply records found between " + startDate + " and " + endDate);
+        }
+
+        int totalTrips = supplies.size();
+        double totalTonnes = supplies.stream().mapToDouble(SugarcaneSupply::getTonnes).sum();
+        double totalFactoryPayout = supplies.stream().mapToDouble(SugarcaneSupply::getTotalPrice).sum();
+
+        return new FactorySummaryDTO(startDate, endDate, totalTrips, totalTonnes, totalFactoryPayout, supplies);
     }
 }

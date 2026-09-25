@@ -1,7 +1,8 @@
 package com.example.farmer.canematrix.service;
 
-import com.example.farmer.canematrix.dto.request.FarmerRequest;
-import com.example.farmer.canematrix.dto.response.FarmerResponse;
+
+import com.example.farmer.canematrix.dto.FarmerRequest;
+import com.example.farmer.canematrix.dto.FarmerResponse;
 
 import java.util.List;
 

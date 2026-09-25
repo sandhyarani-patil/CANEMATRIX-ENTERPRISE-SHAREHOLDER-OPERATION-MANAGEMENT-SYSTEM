@@ -3,6 +3,7 @@ package com.example.farmer.canematrix.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sugarcane_supplies")
@@ -16,16 +17,18 @@ public class SugarcaneSupply {
     private String farmerCode;
     private String farmerName;
 
-    private LocalDate supplyDate;
-    private double tonnes;          // या खेपेचे टन
-    private double ratePerTon;      // प्रति टन दर
-    private double totalPrice;      // या खेपेचे एकूण बिल (tonnes * ratePerTon)
+    private String farmCode;        // 👈 नवीन फील्ड
+    private LocalDate plantingDate; // 👈 नवीन फील्ड
 
-    private String tractorNumber;   // ट्रॅक्टर नंबर
-    private String driverName;      // ड्रायव्हरचे नाव
+    private LocalDateTime supplyDate;
+    private double tonnes;
+    private double ratePerTon;
+    private double totalPrice;
+
+    private String tractorNumber;
+    private String driverName;
     private String receiptNumber;
-    // युनिक पावती नंबर
 
-    private double cumulativeTonnes;      // आजवरचा एकूण टन (उदा. 15.5 + 15.5 = 31.0)
-    private double cumulativeTotalPrice;  // आजवरची एकूण रक्कम
+    private double cumulativeTonnes;
+    private double cumulativeTotalPrice;
 }

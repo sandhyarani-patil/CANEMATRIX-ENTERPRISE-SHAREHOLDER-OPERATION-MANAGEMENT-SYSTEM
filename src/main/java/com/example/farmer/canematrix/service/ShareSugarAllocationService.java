@@ -16,4 +16,7 @@ public interface ShareSugarAllocationService {
 
     // <<-- ही नवीन पीडीएफ मेथड इथे इंटरफेसमध्ये ॲड करा -->>
     byte[] generateLiftReceiptPdf(SugarLiftReceiptDto receipt);
+
+
+    byte[] generateLiftReceiptPdfByHistoryId(Long historyId);
 }

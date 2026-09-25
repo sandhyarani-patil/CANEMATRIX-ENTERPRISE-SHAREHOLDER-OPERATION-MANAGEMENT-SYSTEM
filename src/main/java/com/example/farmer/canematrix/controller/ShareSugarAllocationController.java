@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal; // 👈 1. He import add karayche ahe!
 import java.util.List;
 
 @RestController
@@ -21,28 +22,25 @@ public class ShareSugarAllocationController {
     @Autowired
     private ShareSugarAllocationService allocationService;
 
-    // नवीन ॲलोकेशन तयार करणे
     @PostMapping
     public ResponseEntity<ShareSugarAllocationDto> createAllocation(@Valid @RequestBody ShareSugarAllocationDto dto) {
         ShareSugarAllocationDto created = allocationService.createShareSugarAllocation(dto);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
-    // सर्व ॲलोकेशन पाहणे
     @GetMapping
     public ResponseEntity<List<ShareSugarAllocationDto>> getAllAllocations() {
         List<ShareSugarAllocationDto> list = allocationService.getAllShareSugarAllocations();
         return ResponseEntity.ok(list);
     }
 
-    // शेतकरी कोडवरून ॲलोकेशन शोधणे
     @GetMapping("/farmer/{farmerCode}")
     public ResponseEntity<ShareSugarAllocationDto> getAllocationByFarmerCode(@PathVariable String farmerCode) {
         ShareSugarAllocationDto dto = allocationService.getShareSugarAllocationByFarmerCode(farmerCode);
         return ResponseEntity.ok(dto);
     }
 
-    // साखर उचलणे आणि पावती (Receipt) जनरेट करणे
+    // State badalnyasathi PUT request (फक्त इथेच साखर खाली होईल)
     @PutMapping("/lift")
     public ResponseEntity<SugarLiftReceiptDto> liftSugar(
             @RequestParam String farmerCode,
@@ -56,31 +54,36 @@ public class ShareSugarAllocationController {
         return ResponseEntity.ok(allocationService.getFarmerLiftHistory(farmerCode));
     }
 
-    @GetMapping("/lift/pdf")
-    public ResponseEntity<byte[]> downloadLiftReceiptPdf(
-            @RequestParam String farmerCode,
-            @RequestParam double quantity) {
-
-        // 1. आधी साखर उचलून पावतीचा डेटा मिळवणे
-        SugarLiftReceiptDto receipt = allocationService.liftSugar(farmerCode, quantity);
-
-        // 2. त्या डेटावरून PDF बाईट्स जनरेट करणे
-        byte[] pdfBytes = allocationService.generateLiftReceiptPdf(receipt);
-
-        // 3. ब्राऊझर किंवा पोस्टमनला PDF फाईल डाऊनलोडसाठी पाठवणे
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "Sugar_Receipt_" + farmerCode + ".pdf");
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(pdfBytes);
-    }
-
-    // रेकॉर्ड डिलीट करणे
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteAllocation(@PathVariable Long id) {
         allocationService.deleteShareSugarAllocation(id);
         return ResponseEntity.ok("Share sugar allocation deleted successfully!");
+    }
+
+    // Safe & Idempotent PDF download using historyId (फक्त वाचणे, डेटा बदलत नाही)
+    @GetMapping("/lift/pdf/{historyId}")
+    public ResponseEntity<byte[]> downloadLiftReceiptPdf(@PathVariable Long historyId) {
+        byte[] pdfBytes = allocationService.generateLiftReceiptPdfByHistoryId(historyId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "Sugar_Receipt_" + historyId + ".pdf");
+
+        return ResponseEntity.ok().headers(headers).body(pdfBytes);
+    }
+
+    // 🌾 Farmer swatahi fukt tyachi sugar status baghu shakel
+    @GetMapping("/my-sugar-status")
+    public ResponseEntity<ShareSugarAllocationDto> getMySugarStatus(Principal principal) {
+        String loggedInFarmerCode = principal.getName();
+        ShareSugarAllocationDto dto = allocationService.getShareSugarAllocationByFarmerCode(loggedInFarmerCode);
+        return ResponseEntity.ok(dto);
+    }
+
+    // 📜 Farmer swatahi tyachi sugar lift history baghu shakel
+    @GetMapping("/my-history")
+    public ResponseEntity<List<SugarLiftHistory>> getMyLiftHistory(Principal principal) {
+        String loggedInFarmerCode = principal.getName();
+        return ResponseEntity.ok(allocationService.getFarmerLiftHistory(loggedInFarmerCode));
     }
 }

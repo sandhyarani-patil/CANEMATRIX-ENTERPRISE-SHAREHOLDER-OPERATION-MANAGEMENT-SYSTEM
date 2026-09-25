@@ -1,6 +1,7 @@
 package com.example.farmer.canematrix.service.impl;
 
 import com.example.farmer.canematrix.entity.SugarFactoryRate;
+import com.example.farmer.canematrix.exception.ResourceNotFoundException; // 👈 रेकॉर्ड सापडला नाही तर
 import com.example.farmer.canematrix.repository.SugarFactoryRateRepository;
 import com.example.farmer.canematrix.service.SugarFactoryRateService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,7 @@ public class SugarFactoryRateServiceImpl implements SugarFactoryRateService {
         // २. जर अपडेट होत असेल आणि ID अस्तित्वात असेल, तर जुन्या डेटाची पडताळणी
         if (rate.getId() != null) {
             SugarFactoryRate existingRate = repository.findById(rate.getId())
-                    .orElseThrow(() -> new RuntimeException("Sugar Factory Rate not found with ID: " + rate.getId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Sugar Factory Rate not found with ID: " + rate.getId()));
 
             existingRate.setSugarFactoryName(rate.getSugarFactoryName());
             existingRate.setSharePurchaseAmount(rate.getSharePurchaseAmount());
@@ -42,7 +43,7 @@ public class SugarFactoryRateServiceImpl implements SugarFactoryRateService {
     @Override
     public SugarFactoryRate getLatestRate() {
         return repository.findFirstByOrderByIdDesc()
-                .orElseThrow(() -> new RuntimeException("No factory rates configured in the system!"));
+                .orElseThrow(() -> new ResourceNotFoundException("No factory rates configured in the system!"));
     }
 
     @Override

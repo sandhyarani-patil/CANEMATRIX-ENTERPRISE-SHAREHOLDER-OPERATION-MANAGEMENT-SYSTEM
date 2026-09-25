@@ -3,6 +3,7 @@ package com.example.farmer.canematrix.service.impl;
 import com.example.farmer.canematrix.entity.Farmer;
 import com.example.farmer.canematrix.entity.FarmerNominee;
 import com.example.farmer.canematrix.exception.FarmerNotFoundException;
+import com.example.farmer.canematrix.exception.ResourceNotFoundException; // 👈 नवीन एक्सेप्शन इम्पोर्ट केली
 import com.example.farmer.canematrix.repository.FarmerNomineeRepository;
 import com.example.farmer.canematrix.repository.FarmerRepository;
 import com.example.farmer.canematrix.service.FarmerNomineeService;
@@ -37,13 +38,13 @@ public class FarmerNomineeServiceImpl implements FarmerNomineeService {
     @Transactional(readOnly = true)
     public FarmerNominee getNomineeByFarmerId(Long farmerId) {
         return nomineeRepository.findByFarmerId(farmerId)
-                .orElseThrow(() -> new RuntimeException("Nominee details not found for farmer id: " + farmerId));
+                .orElseThrow(() -> new ResourceNotFoundException("Nominee details not found for farmer id: " + farmerId));
     }
 
     @Override
     public FarmerNominee partialUpdateNominee(Long nomineeId, Map<String, Object> updates) {
         FarmerNominee existing = nomineeRepository.findById(nomineeId)
-                .orElseThrow(() -> new RuntimeException("Nominee not found with id: " + nomineeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Nominee not found with id: " + nomineeId));
 
         updates.forEach((key, value) -> {
             if (value != null) {

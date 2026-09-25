@@ -6,6 +6,10 @@ import java.time.LocalDate;
 
 @Data
 public class TonnesSugarReceiptDto {
+
+    private Long liftHistoryId;
+
+
     private String farmerCode;
     private String farmerName;
     private Double totalTonnes;

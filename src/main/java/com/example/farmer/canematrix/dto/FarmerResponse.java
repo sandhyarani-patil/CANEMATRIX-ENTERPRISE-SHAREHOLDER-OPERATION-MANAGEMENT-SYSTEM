@@ -1,4 +1,4 @@
-package com.example.farmer.canematrix.dto.response;
+package com.example.farmer.canematrix.dto;
 
 import com.example.farmer.canematrix.dto.BankDetailResponse;
 import com.example.farmer.canematrix.dto.FarmDetailResponse;

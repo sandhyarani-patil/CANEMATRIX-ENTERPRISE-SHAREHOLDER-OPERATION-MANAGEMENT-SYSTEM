@@ -1,7 +1,8 @@
 package com.example.farmer.canematrix.controller;
 
-import com.example.farmer.canematrix.dto.request.FarmerRequest;
-import com.example.farmer.canematrix.dto.response.FarmerResponse;
+
+import com.example.farmer.canematrix.dto.FarmerRequest;
+import com.example.farmer.canematrix.dto.FarmerResponse;
 import com.example.farmer.canematrix.entity.FarmerBankDetail;
 import com.example.farmer.canematrix.entity.FarmerFarmDetail;
 import com.example.farmer.canematrix.entity.FarmerNominee;
@@ -19,6 +20,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/farmers")
+@CrossOrigin(origins = "http://localhost:5173")
 public class FarmerController {
 
     private final FarmerService farmerService;
@@ -73,92 +75,7 @@ public class FarmerController {
         return ResponseEntity.ok("Farmer record deleted successfully with ID: " + id);
     }
 
-    // ==========================================
-    // 2. BANK DETAILS APIs
-    // ==========================================
 
-    @PostMapping("/{farmerId}/bank")
-    public ResponseEntity<FarmerBankDetail> addBankDetail(
-            @PathVariable Long farmerId,
-            @Valid @RequestBody FarmerBankDetail bankDetail
-    ) {
-        return new ResponseEntity<>(bankService.addBankDetail(farmerId, bankDetail), HttpStatus.CREATED);
-    }
 
-    @GetMapping("/{farmerId}/bank")
-    public ResponseEntity<FarmerBankDetail> getBankDetail(@PathVariable Long farmerId) {
-        return ResponseEntity.ok(bankService.getBankDetailByFarmerId(farmerId));
-    }
 
-    @PutMapping("/bank/{bankId}")
-    public ResponseEntity<FarmerBankDetail> updateBankDetail(
-            @PathVariable Long bankId,
-            @Valid @RequestBody FarmerBankDetail bankDetail
-    ) {
-        return ResponseEntity.ok(bankService.updateBankDetail(bankId, bankDetail));
-    }
-
-    @PatchMapping("/bank/{bankId}")
-    public ResponseEntity<FarmerBankDetail> partialUpdateBankDetail(
-            @PathVariable Long bankId,
-            @RequestBody Map<String, Object> updates
-    ) {
-        return ResponseEntity.ok(bankService.partialUpdateBankDetail(bankId, updates));
-    }
-
-    // ==========================================
-    // 3. FARM DETAILS APIs
-    // ==========================================
-
-    @PostMapping("/{farmerId}/farms")
-    public ResponseEntity<FarmerFarmDetail> addFarmDetail(
-            @PathVariable Long farmerId,
-            @Valid @RequestBody FarmerFarmDetail farmDetail
-    ) {
-        return new ResponseEntity<>(farmService.addFarmDetail(farmerId, farmDetail), HttpStatus.CREATED);
-    }
-
-    @GetMapping("/{farmerId}/farms")
-    public ResponseEntity<List<FarmerFarmDetail>> getFarmsByFarmerId(@PathVariable Long farmerId) {
-        return ResponseEntity.ok(farmService.getFarmsByFarmerId(farmerId));
-    }
-
-    @PutMapping("/farms/{farmId}")
-    public ResponseEntity<FarmerFarmDetail> updateFarmDetail(
-            @PathVariable Long farmId,
-            @Valid @RequestBody FarmerFarmDetail farmDetail
-    ) {
-        return ResponseEntity.ok(farmService.updateFarmDetail(farmId, farmDetail));
-    }
-
-    @DeleteMapping("/farms/{farmId}")
-    public ResponseEntity<String> deleteFarmDetail(@PathVariable Long farmId) {
-        farmService.deleteFarmDetail(farmId);
-        return ResponseEntity.ok("Farm record deleted successfully with ID: " + farmId);
-    }
-
-    // ==========================================
-    // 4. NOMINEE DETAILS APIs
-    // ==========================================
-
-    @PostMapping("/{farmerId}/nominee")
-    public ResponseEntity<FarmerNominee> addNominee(
-            @PathVariable Long farmerId,
-            @Valid @RequestBody FarmerNominee nominee
-    ) {
-        return new ResponseEntity<>(nomineeService.addNominee(farmerId, nominee), HttpStatus.CREATED);
-    }
-
-    @GetMapping("/{farmerId}/nominee")
-    public ResponseEntity<FarmerNominee> getNominee(@PathVariable Long farmerId) {
-        return ResponseEntity.ok(nomineeService.getNomineeByFarmerId(farmerId));
-    }
-
-    @PatchMapping("/nominee/{nomineeId}")
-    public ResponseEntity<FarmerNominee> partialUpdateNominee(
-            @PathVariable Long nomineeId,
-            @RequestBody Map<String, Object> updates
-    ) {
-        return ResponseEntity.ok(nomineeService.partialUpdateNominee(nomineeId, updates));
-    }
 }

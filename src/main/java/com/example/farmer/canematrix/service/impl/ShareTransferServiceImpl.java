@@ -3,6 +3,8 @@ package com.example.farmer.canematrix.service.impl;
 import com.example.farmer.canematrix.entity.Farmer;
 import com.example.farmer.canematrix.entity.FarmerNominee;
 import com.example.farmer.canematrix.entity.ShareTransfer;
+import com.example.farmer.canematrix.exception.FarmerNotFoundException;     // 👈 शेतकरी सापडला नाही तर
+import com.example.farmer.canematrix.exception.ResourceNotFoundException; // 👈 रेकॉर्ड सापडला नाही तर
 import com.example.farmer.canematrix.repository.FarmerNomineeRepository;
 import com.example.farmer.canematrix.repository.FarmerRepository;
 import com.example.farmer.canematrix.repository.ShareTransferRepository;
@@ -68,7 +70,7 @@ public class ShareTransferServiceImpl implements ShareTransferService {
         String originalFarmerCode = extractOriginalCode(farmerCode);
 
         Farmer farmer = farmerRepository.findByFarmerCode(originalFarmerCode)
-                .orElseThrow(() -> new RuntimeException("Farmer not found with code: " + originalFarmerCode));
+                .orElseThrow(() -> new FarmerNotFoundException("Farmer not found with code: " + originalFarmerCode));
 
         String nomineeName = nomineeRepository.findByFarmerId(farmer.getId())
                 .map(FarmerNominee::getNomineeName)
@@ -100,7 +102,7 @@ public class ShareTransferServiceImpl implements ShareTransferService {
                 transfer.setDocumentPath(filePath);
 
             } catch (IOException e) {
-                throw new RuntimeException("Failed to store document file!", e);
+                throw new IllegalArgumentException("Failed to store document file!", e);
             }
         }
 
@@ -110,7 +112,7 @@ public class ShareTransferServiceImpl implements ShareTransferService {
     @Override
     public ShareTransfer updateTransferStatus(Long id, ShareTransfer.TransferStatus status) {
         ShareTransfer transfer = shareTransferRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Share Transfer request not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Share Transfer request not found with id: " + id));
 
         transfer.setStatus(status);
         return shareTransferRepository.save(transfer);
@@ -130,10 +132,10 @@ public class ShareTransferServiceImpl implements ShareTransferService {
     @Override
     public byte[] generateTransferReceiptPdf(Long transferId) {
         ShareTransfer transfer = shareTransferRepository.findById(transferId)
-                .orElseThrow(() -> new RuntimeException("Share Transfer record not found with id: " + transferId));
+                .orElseThrow(() -> new ResourceNotFoundException("Share Transfer record not found with id: " + transferId));
 
         if (transfer.getStatus() != ShareTransfer.TransferStatus.APPROVED) {
-            throw new RuntimeException("Receipt can only be generated for APPROVED share transfers!");
+            throw new IllegalArgumentException("Receipt can only be generated for APPROVED share transfers!");
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -213,7 +215,7 @@ public class ShareTransferServiceImpl implements ShareTransferService {
 
             document.save(out);
         } catch (IOException e) {
-            throw new RuntimeException("Error while generating Share Transfer PDF", e);
+            throw new IllegalArgumentException("Error while generating Share Transfer PDF", e);
         }
 
         return out.toByteArray();

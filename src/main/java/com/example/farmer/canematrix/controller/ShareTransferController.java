@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,13 +14,15 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/share-transfer")
+
 public class ShareTransferController {
 
     @Autowired
     private ShareTransferServiceImpl service;
 
-    // 1. शेअर ट्रान्सफरसाठी अर्ज करणे (डॉक्युमेंट आणि सर्व डिटेल्ससह)
+    // 1. शेअर ट्रान्सफरसाठी अर्ज करणे (फक्त क्लार्क किंवा ॲडमिन करू शकतील)
     @PostMapping("/create")
+    @PreAuthorize("hasRole('CLERK') or hasRole('ADMIN')")
     public ResponseEntity<ShareTransfer> createTransfer(
             @RequestParam("farmerCode") String farmerCode,
             @RequestParam("transferReason") String transferReason,
@@ -29,8 +32,9 @@ public class ShareTransferController {
         return ResponseEntity.ok(transfer);
     }
 
-    // 2. अर्ज Approve किंवा Reject करणे
+    // 2. अर्ज Approve किंवा Reject करणे (फक्त ॲडमिन/मॅनेजर करू शकेल)
     @PutMapping("/status/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ShareTransfer> updateStatus(
             @PathVariable Long id,
             @RequestParam("status") ShareTransfer.TransferStatus status) { // PENDING, APPROVED, REJECTED
@@ -41,6 +45,7 @@ public class ShareTransferController {
 
     // 3. सर्व ट्रान्सफर अर्जांची लिस्ट पाहणे
     @GetMapping("/all")
+    @PreAuthorize("hasRole('CLERK') or hasRole('ADMIN')")
     public ResponseEntity<List<ShareTransfer>> getAllTransfers() {
         return ResponseEntity.ok(service.getAllTransfers());
     }

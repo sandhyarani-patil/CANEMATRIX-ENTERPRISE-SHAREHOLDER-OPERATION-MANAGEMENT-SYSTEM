@@ -15,4 +15,5 @@ public interface FarmerRepository extends JpaRepository<Farmer, Long> {
 
     boolean existsByMobileNumber(String mobileNumber);
 
+
 }

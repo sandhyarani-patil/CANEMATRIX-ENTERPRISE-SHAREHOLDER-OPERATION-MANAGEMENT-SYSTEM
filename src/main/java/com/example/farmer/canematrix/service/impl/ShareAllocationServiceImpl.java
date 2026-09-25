@@ -4,6 +4,8 @@ import com.example.farmer.canematrix.dto.ShareAllocationDto;
 import com.example.farmer.canematrix.entity.Farmer;
 import com.example.farmer.canematrix.entity.ShareAllocation;
 import com.example.farmer.canematrix.entity.SugarFactoryRate;
+import com.example.farmer.canematrix.exception.FarmerNotFoundException; // 👈 शेतकरी सापडला नाही तर
+import com.example.farmer.canematrix.exception.ResourceNotFoundException; // 👈 रेकॉर्ड सापडला नाही तर
 import com.example.farmer.canematrix.repository.FarmerRepository;
 import com.example.farmer.canematrix.repository.ShareAllocationRepository;
 import com.example.farmer.canematrix.repository.SugarFactoryRateRepository;
@@ -32,7 +34,7 @@ public class ShareAllocationServiceImpl implements ShareAllocationService {
 
         // १. DB मधून शेतकऱ्याची माहिती आणा
         Farmer farmer = farmerRepository.findByFarmerCode(dto.getFarmerCode())
-                .orElseThrow(() -> new RuntimeException("Farmer not found with code: " + dto.getFarmerCode()));
+                .orElseThrow(() -> new FarmerNotFoundException("Farmer not found with code: " + dto.getFarmerCode()));
 
         ShareAllocation shareAllocation = new ShareAllocation();
 
@@ -65,7 +67,7 @@ public class ShareAllocationServiceImpl implements ShareAllocationService {
             shareAllocation.setSharePurchased(1);
 
             SugarFactoryRate latestRate = sugarFactoryRateRepository.findFirstByOrderByIdDesc()
-                    .orElseThrow(() -> new RuntimeException("Factory rates are not configured in Rate Master!"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Factory rates are not configured in Rate Master!"));
 
             shareAllocation.setSharePrice(latestRate.getSharePurchaseAmount());
             shareAllocation.setTotalPrice(latestRate.getSharePurchaseAmount().multiply(BigDecimal.valueOf(shareAllocation.getSharePurchased())));
@@ -101,7 +103,7 @@ public class ShareAllocationServiceImpl implements ShareAllocationService {
     @Override
     public ShareAllocationDto getShareAllocationById(Long id) {
         ShareAllocation existing = shareAllocationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Share Allocation not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Share Allocation not found with id: " + id));
         return mapToDto(existing);
     }
 
@@ -116,7 +118,7 @@ public class ShareAllocationServiceImpl implements ShareAllocationService {
     @Override
     public ShareAllocationDto updateShareAllocation(Long id, ShareAllocationDto dto) {
         ShareAllocation existing = shareAllocationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Share Allocation not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Share Allocation not found with id: " + id));
 
         existing.setPurchasingDate(dto.getPurchasingDate());
         existing.setTypeOfSugarcane(dto.getTypeOfSugarcane());
@@ -132,7 +134,7 @@ public class ShareAllocationServiceImpl implements ShareAllocationService {
             existing.setRatePerKg(BigDecimal.ZERO);
         } else {
             SugarFactoryRate latestRate = sugarFactoryRateRepository.findFirstByOrderByIdDesc()
-                    .orElseThrow(() -> new RuntimeException("Factory rates are not configured in Rate Master!"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Factory rates are not configured in Rate Master!"));
 
             existing.setSharePurchased(1);
             existing.setSharePrice(latestRate.getSharePurchaseAmount());
@@ -147,6 +149,9 @@ public class ShareAllocationServiceImpl implements ShareAllocationService {
 
     @Override
     public void deleteShareAllocation(Long id) {
+        if (!shareAllocationRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Share Allocation not found with id: " + id);
+        }
         shareAllocationRepository.deleteById(id);
     }
 
@@ -183,9 +188,9 @@ public class ShareAllocationServiceImpl implements ShareAllocationService {
         dto.setTotalPrice(entity.getTotalPrice());
         dto.setPurchasingDate(entity.getPurchasingDate());
         dto.setRatePerKg(entity.getRatePerKg());
-        dto.setTypeOfSugarcane(entity.getTypeOfSugarcane());
-        dto.setPlantingDate(entity.getPlantingDate());
-        dto.setPerMonthSugarKg(entity.getPerMonthSugarKg());
+        dto.setTypeOfSugarcane(dto.getTypeOfSugarcane());
+        dto.setPlantingDate(dto.getPlantingDate());
+        dto.setPerMonthSugarKg(dto.getPerMonthSugarKg());
         dto.setNomineeName(entity.getNomineeName());
         dto.setDirectorName(entity.getDirectorName());
         dto.setStatus(entity.getStatus());

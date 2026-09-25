@@ -3,6 +3,7 @@ package com.example.farmer.canematrix.service.impl;
 import com.example.farmer.canematrix.dto.FestivalSugarMasterDto;
 import com.example.farmer.canematrix.entity.FestivalSugarMaster;
 import com.example.farmer.canematrix.entity.ShareSugarAllocation;
+import com.example.farmer.canematrix.exception.ResourceNotFoundException; // 👈 नवीन एक्सेप्शन इम्पोर्ट केली
 import com.example.farmer.canematrix.repository.FestivalSugarMasterRepository;
 import com.example.farmer.canematrix.repository.ShareSugarAllocationRepository;
 import com.example.farmer.canematrix.service.FestivalSugarMasterService;
@@ -61,12 +62,13 @@ public class FestivalSugarMasterServiceImpl implements FestivalSugarMasterServic
 
         return mapToDto(savedFestival);
     }
+
     @Override
     @Transactional
     public FestivalSugarMasterDto updateFestivalSugar(Long id, FestivalSugarMasterDto dto) {
         // 1. आधी रेकॉर्ड आहे का ते तपासणे
         FestivalSugarMaster existing = festivalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Festival sugar not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Festival sugar not found with id: " + id));
 
         // 2. नवीन डेटा सेट करणे
         existing.setAllocationYear(dto.getAllocationYear());
@@ -79,6 +81,7 @@ public class FestivalSugarMasterServiceImpl implements FestivalSugarMasterServic
 
         return mapToDto(updated);
     }
+
     @Override
     public List<FestivalSugarMasterDto> getAllFestivalSugars() {
         return festivalRepository.findAll().stream()
@@ -89,14 +92,14 @@ public class FestivalSugarMasterServiceImpl implements FestivalSugarMasterServic
     @Override
     public FestivalSugarMasterDto getFestivalSugarById(Long id) {
         FestivalSugarMaster entity = festivalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Festival sugar not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Festival sugar not found with id: " + id));
         return mapToDto(entity);
     }
 
     @Override
     public void deleteFestivalSugar(Long id) {
         if (!festivalRepository.existsById(id)) {
-            throw new RuntimeException("Festival sugar not found with id: " + id);
+            throw new ResourceNotFoundException("Festival sugar not found with id: " + id);
         }
         festivalRepository.deleteById(id);
     }
