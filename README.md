@@ -166,7 +166,5 @@ Full request/response details are available through Swagger UI once the backend 
 - Add unit and integration test coverage
 - Dockerize backend and frontend for easier deployment
 
-## License
 
-Add a license of your choice (MIT, Apache 2.0, etc.) before making this repository public.
 
